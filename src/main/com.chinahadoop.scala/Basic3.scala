@@ -9,7 +9,5 @@ object Basic3 extends App {
   R.nextInt()
   println("------------------------------------")
   import scala.math._
-  import scala.math.{random => _}
-  println(random())
   println(abs(-1))
 }
