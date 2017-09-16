@@ -3,6 +3,7 @@ package Titanic
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.feature._
+import org.apache.spark.ml.classification.LogisticRegression
 
 object Titanic_Try {
   def main(args: Array[String]): Unit = {
@@ -20,17 +21,22 @@ object Titanic_Try {
     var train = spark.read.format("csv")
       .option("header", "true")
       .option("inferSchema", "true")
-      .load("C:/Users/Dell/IdeaProjects/Scala_Study_Note/data/Titanic/train.csv")
+      .load("data/Titanic/train.csv")
 
     var test = spark.read.format("csv")
       .option("header", "true")
       .option("inferSchema", "true")
-      .load("C:/Users/Dell/IdeaProjects/Scala_Study_Note/data/Titanic/test.csv")
+      .load("data/Titanic/test.csv")
+
+    var testLabel = spark.read.format("csv")
+      .option("header", "true")
+      .option("inferSchema", "true")
+      .load("data/Titanic/result.csv")
 
     train = train.select("Survived", "Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")
-    // 删除缺失值的行
+    test = test.join(testLabel, test("PassengerId") === testLabel("PassengerId"), "left_outer")
+    test = test.select("Survived", "Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")
 
-    test = test.select("Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")
 
 
     /**
@@ -42,60 +48,99 @@ object Titanic_Try {
     train = train.na.drop()
     test = test.na.drop()
 
-    // Sex Embarked OneHotEncoder train
+    // One hot encoder train test
     var indexer = new StringIndexer()
       .setInputCol("Sex")
       .setOutputCol("SexIndex")
       .fit(train)
 
-    var indexed = indexer.transform(train)
+    // indexer 由 Sex 生成 SexIndex
+    val sexIndexedTrain = indexer.transform(train)
+    val sexIndexedTest = indexer.transform(test)
 
-    var encoder = new OneHotEncoder()
+    val sexEncoder = new OneHotEncoder()
       .setInputCol("SexIndex")
       .setOutputCol("SexVec")
-
-    train = encoder.transform(indexed)
+    // sexEncoder 由 SexIndex 生成 SexVec
+    train = sexEncoder.transform(sexIndexedTrain)
+    test = sexEncoder.transform(sexIndexedTest)
 
     indexer = new StringIndexer()
       .setInputCol("Embarked")
       .setOutputCol("EmbarkedIndex")
       .fit(train)
 
-    indexed = indexer.transform(train)
+    val embarkedIndexedTrain = indexer.transform(train)
+    val embarkedIndexedTest = indexer.transform(test)
 
-    encoder = new OneHotEncoder()
+    val embarkedEncoder = new OneHotEncoder()
       .setInputCol("EmbarkedIndex")
       .setOutputCol("EmbarkedVec")
 
-    train = encoder.transform(indexed)
+    train = embarkedEncoder.transform(embarkedIndexedTrain)
+    test = embarkedEncoder.transform(embarkedIndexedTest)
 
-    // Sex Embarked OneHotEncoder test
-    indexer = new StringIndexer()
-      .setInputCol("Sex")
-      .setOutputCol("SexIndex")
-      .fit(train.select("Sex")) // 要使用 train.select("Sex") 使用训练集对测试机进行处理
+    //
+    val assembler = new VectorAssembler()
+      .setInputCols(Array("Pclass","SexVec", "Age", "SibSp", "Parch", "Fare", "EmbarkedVec"))
+      .setOutputCol("features")
 
-    indexed = indexer.transform(test) // 生成 index 列指代原先的水平
+    train = assembler.transform(train).select("features", "Survived")
+    test = assembler.transform(test).select("features", "Survived")
 
-    encoder = new OneHotEncoder()
-      .setInputCol("SexIndex")
-      .setOutputCol("SexVec")
-      .setDropLast(true) // 是否保留最后一列 , 也就是默认 true 是 dummy variable , 设置 false 是 one hot encoder
+    // Standard train test
+    val scaler = new StandardScaler()
+      .setInputCol("features")
+      .setOutputCol("scaledFeatures")
+      .setWithStd(true)
+      .setWithMean(true)
+      .fit(train)
 
-    test = encoder.transform(indexed)
+    train = scaler.transform(train).select("features", "scaledFeatures", "Survived")
+    test = scaler.transform(test).select("features", "scaledFeatures", "Survived")
 
-    indexer = new StringIndexer()
-      .setInputCol("Embarked")
-      .setOutputCol("EmbarkedIndex")
-      .fit(train.select("Embarked"))
+    // pca train test
+    val pca = new PCA()
+      .setInputCol("scaledFeatures")
+      .setOutputCol("pcaedFeatures")
+      .setK(3)
+      .fit(train)
 
-    indexed = indexer.transform(test)
+    // pca 是 PCAModel 类 对象
+    // pca.explainedVariance 返回 DenseVector 对象
+    // DenseVector.values 返回 Array[Double] 对象
+    println("------------------------------------")
+    // 前面 PCA().setK() 设置几个主成分 , 这里就会打印出几个主成分方差占比
+    pca.explainedVariance.values.foreach(println)
+    println("------------------------------------")
 
-    encoder = new OneHotEncoder()
-      .setInputCol("EmbarkedIndex")
-      .setOutputCol("EmbarkedVec")
-      .setDropLast(true)
+    train = pca.transform(train).select("features", "scaledFeatures", "pcaedFeatures","Survived")
+    test = pca.transform(test).select("features", "scaledFeatures", "pcaedFeatures", "Survived")
 
-    test = encoder.transform(indexed)
+    // Logistics Regression
+    // LogisticRegression().fit() 返回 LogisticRegressionModel 对象
+    val lr = new LogisticRegression()
+      .setFeaturesCol("pcaedFeatures")
+      .setLabelCol("Survived")
+      .setPredictionCol("SurvivedHat")
+      .setStandardization(true)
+      .setMaxIter(10)
+      .setRegParam(0.3)
+      .setElasticNetParam(0.8)
+      .fit(train)
+
+    // testSurvivedHat LogisticRegressionSummary 对象
+    val testSurvivedHat = lr.evaluate(test)
+    var predictions = testSurvivedHat.predictions
+//    train.show(5)
+//    test.show(5)
+    println(testSurvivedHat.featuresCol)
+    println(testSurvivedHat.labelCol)
+    print(testSurvivedHat.probabilityCol)
+
+    // debug
+//    predictions.select("probability").write.format("json").save("data/Titanic/json/")
+
+    spark.stop()
   }
 }
