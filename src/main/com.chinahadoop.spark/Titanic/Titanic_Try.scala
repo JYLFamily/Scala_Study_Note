@@ -3,7 +3,9 @@ package Titanic
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.feature._
-import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
+import org.apache.spark.ml.tuning._
+import org.apache.spark.ml.evaluation._
 
 object Titanic_Try {
   def main(args: Array[String]): Unit = {
@@ -36,8 +38,6 @@ object Titanic_Try {
     train = train.select("Survived", "Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")
     test = test.join(testLabel, test("PassengerId") === testLabel("PassengerId"), "left_outer")
     test = test.select("Survived", "Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")
-
-
 
     /**
       * 数据预处理
@@ -117,29 +117,49 @@ object Titanic_Try {
     train = pca.transform(train).select("features", "scaledFeatures", "pcaedFeatures","Survived")
     test = pca.transform(test).select("features", "scaledFeatures", "pcaedFeatures", "Survived")
 
+    /**
+      * 模型训练
+      * */
+
     // Logistics Regression
-    // LogisticRegression().fit() 返回 LogisticRegressionModel 对象
+    // new LogisticRegression() 得到 LogisticRegression 对象
     val lr = new LogisticRegression()
       .setFeaturesCol("pcaedFeatures")
       .setLabelCol("Survived")
       .setPredictionCol("SurvivedHat")
       .setStandardization(true)
-      .setMaxIter(10)
-      .setRegParam(0.3)
-      .setElasticNetParam(0.8)
-      .fit(train)
 
-    // testSurvivedHat LogisticRegressionSummary 对象
-    val testSurvivedHat = lr.evaluate(test)
-    var predictions = testSurvivedHat.predictions
-//    train.show(5)
-//    test.show(5)
-    println(testSurvivedHat.featuresCol)
-    println(testSurvivedHat.labelCol)
-    print(testSurvivedHat.probabilityCol)
+    // 设置交叉验证参数网格
+    val paramGrid  = new ParamGridBuilder()
+      .addGrid(lr.elasticNetParam, Array(0, 0.1 , 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1))
+      .build()
 
-    // debug
-//    predictions.select("probability").write.format("json").save("data/Titanic/json/")
+    // 设置评估指标 accuracy
+    val evaluator = new MulticlassClassificationEvaluator()
+      .setLabelCol("Survived")
+      .setPredictionCol("SurvivedHat")
+      .setMetricName("accuracy")
+
+    // 设置CV
+    val cv = new CrossValidator()
+    cv.setEstimator(lr)
+      .setEvaluator(evaluator)
+      .setEstimatorParamMaps(paramGrid)
+      .setNumFolds(5)
+
+    // 得到交叉验证 Model
+    val cvModel = cv.fit(train)
+    // 得到最优的 LogisticRegressionModel 对象
+    val lrModel = cvModel.bestModel.asInstanceOf[LogisticRegressionModel]
+
+    // 得到回归系数与截距
+    println(s"Weights: ${lrModel.coefficients} Intercept: ${lrModel.intercept}")
+    // lrModel.evaluate() 返回 LogisticRegressionSummary 对象
+    test  = lrModel.evaluate(test).predictions
+
+    // 模型评估
+    val accuracy = evaluator.evaluate(test)
+    println(s"accuracy: ${accuracy}")
 
     spark.stop()
   }
