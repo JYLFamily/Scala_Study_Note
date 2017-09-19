@@ -70,8 +70,11 @@ object Titanic_Try_Rdd {
     println(s"Positive: ${trainLabelVector.numNonzeros}")
     println(s"Negative: ${trainLabelVector.values.length - trainLabelVector.numNonzeros}")
 
-    // Label DataFrame Array[Double] => Array[Tuple1[Double]] 就能够创建 DataFrame 了
-    val trainLabelDataFrame = spark.createDataFrame(trainLabel.map(label => Tuple1(label))).toDF("Label")
+    // Label DataFrame Array[Double] map 每个元素由 Double => Tuple1[Double] 就能够创建 DataFrame 了
+    val trainLabelDataFrame = spark.createDataFrame(trainLabel
+        .map(label => Tuple1(label)))
+      .toDF("Label")
+
     trainLabelDataFrame.show()
 
     println("------------------ Features ------------------")
@@ -115,9 +118,8 @@ object Titanic_Try_Rdd {
         features
       })
 
-    trainFeatures.foreach(println)
-    // Array[Array[Double]] map Array[Double] => Tuple1[Double]
-    val trainFeaturesDataFrame = spark.createDataFrame(trainFeatures.map(arrayDouble => Vectors.dense(arrayDouble))
+    // Array[Array[Double]] map 每个元素由 Array[Double] => Tuple1[Array[Double]]
+    val trainFeaturesDataFrame = spark.createDataFrame(trainFeatures
       .map(features => Tuple1(features)))
       .toDF("features")
 
