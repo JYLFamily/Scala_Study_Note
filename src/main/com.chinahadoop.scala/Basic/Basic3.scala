@@ -1,3 +1,5 @@
+package Basic
+
 class Basic3 {
 
 }

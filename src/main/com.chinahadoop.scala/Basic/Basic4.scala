@@ -1,3 +1,5 @@
+package Basic
+
 class Basic4 {
 
 }
@@ -22,7 +24,7 @@ object Basic4 extends App {
   def result3(obj: Any): Unit = {
     obj match {
       case i: Int => println("Int")
-      case i:String => println("String")
+      case i: String => println("String")
       case _ => println("Other type")
     }
   }

@@ -1,0 +1,6 @@
+package Advance
+
+
+object TypeContraints {
+
+}

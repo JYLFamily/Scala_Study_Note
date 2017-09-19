@@ -10,6 +10,8 @@
       <sourceFolder url="file://$MODULE_DIR$/src/main/scala" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/com.chinahadoop.scala" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/com.chinahadoop.spark" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/main/com.jylfamily.spark" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/main/com.jylfamily.scala" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
