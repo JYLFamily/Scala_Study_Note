@@ -9,7 +9,7 @@ object TitanicTryRdd {
     val spark = SparkSession
       .builder
       .master("local[1]")
-      .appName("Titanic_Try_Rdd")
+      .appName("TitanicTryRdd")
       .getOrCreate()
 
     /**

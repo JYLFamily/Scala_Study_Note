@@ -2,16 +2,13 @@ package Titanic
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
-import org.apache.spark.ml.classification._
-import org.apache.spark.ml.evaluation._
-import org.apache.spark.ml.tuning._
 
 object Titanic {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder
       .master("local[1]")
-      .appName("TitanicDataAnalysis")
+      .appName("Titanic")
       .getOrCreate()
 
     /**

@@ -13,7 +13,7 @@ object TitanicTry {
     val spark = SparkSession
       .builder
       .master("local[1]")
-      .appName("Titanic_Try")
+      .appName("TitanicTry")
       .getOrCreate()
 
     /**
