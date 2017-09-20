@@ -78,54 +78,7 @@ object Titanic {
     // Embarked 特征的缺失值用 0 填充 , 众数填充
     train = train.na.fill(Map("Embarked" -> 0))
     test = test.na.fill(Map("Embarked" -> 0))
-/*
-    /**
-      * 特征工程
-      * */
 
-    // A feature transformer that merges multiple columns into a vector column.
-    val assembler = new VectorAssembler()
-    // 设置特征为 Pclass, Sex, Age, SibSp, Parch, Fare, Embarked
-    // 设置特征集合名为 features
-    assembler.setInputCols(Array("Pclass","Sex","Age","SibSp","Parch","Fare","Embarked"))
-      .setOutputCol("features")
-    train = assembler.transform(train)
-    test = assembler.transform(test)
-
-    val scaler = new MinMaxScaler()
-    scaler.setInputCol("features").setOutputCol("scaledFeatures").setMin(0).setMax(1)
-    train = scaler.fit(train).transform(train)
-    test = scaler.fit(train.select("features")).transform(test)
-
-    /**
-      * 模型训练
-      * */
-    var rfc = new RandomForestClassifier()
-    rfc = rfc.setFeaturesCol("scaledFeatures")
-      .setLabelCol("Survived")
-
-    var evaluator = new MulticlassClassificationEvaluator()
-    evaluator = evaluator.setLabelCol("Survived")
-      .setMetricName("accuracy")
-      .setPredictionCol("prediction")
-
-    val pgb = new ParamGridBuilder()
-      .addGrid(rfc.numTrees, Array(5, 10, 15, 20))
-      .build()
-
-    var cv = new CrossValidator()
-    cv = cv.setEstimator(rfc)
-      .setEvaluator(evaluator)
-      .setEstimatorParamMaps(pgb).setNumFolds(5)
-
-    val model = cv.fit(train)
-    model.transform(test)
-    // val accuracy = evaluator.evaluate(test)
-
-    println("------------------ output ------------------")
-    model.transform(test).show()
-    println("------------------ output ------------------")
-*/
     spark.stop()
   }
 }

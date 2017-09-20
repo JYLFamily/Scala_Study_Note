@@ -7,7 +7,7 @@ import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressio
 import org.apache.spark.ml.tuning._
 import org.apache.spark.ml.evaluation._
 
-object Titanic_Try {
+object TitanicTry {
   def main(args: Array[String]): Unit = {
 
     val spark = SparkSession

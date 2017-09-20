@@ -4,7 +4,7 @@ import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.ml.linalg.Vectors
 import scala.util.control.Breaks._
 
-object Titanic_Try_Rdd {
+object TitanicTryRdd {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder
@@ -18,6 +18,9 @@ object Titanic_Try_Rdd {
       * 注意数据有以下一个问题会导致程序出错 , 均缺少最后一个特征 , 导致 string.split(",") 后与别的样本特征数量不一致 , 以下程序是删除了这两行的结果
       * 62,1,1,"Icard, Miss. Amelie",female,38,0,0,113572,80,B28,
       * 830,1,1,"Stone, Mrs. George Nelson (Martha Evelyn)",female,62,0,0,113572,80,B28,
+      * 该问题的后续程序中已经解决
+      *
+      * 以下代码中 features 代表一个样本的一个特征
       * */
 
 
@@ -30,7 +33,7 @@ object Titanic_Try_Rdd {
    // +--------------------+
 
     val train = spark.read
-     .text("C:/Users/Dell/Desktop/week/train.csv")
+     .text("data/Titanic/train.csv")
      .rdd // 返回 RDD[Row] RDD 带泛型 RDD[T] 这里的 T 是 Row
 
     // train RDD[Row] 每个元素都是 Row 类型的 RDD , 可以使用 RDD 的很多方法
@@ -40,10 +43,11 @@ object Titanic_Try_Rdd {
       .map(string => string.substring(1, string.length-1)) // Row 是类似 [30,0,3,,S] 结构 , 变为 String 后 "[30,0,3,,S]" 需要去掉 "["、"]"
       .filter(string => (string(0).toInt >= 48) && (string(0).toInt <= 57)) // 判断字符串第一个元素是否是数字 , 如果不是过滤掉 , 去掉表头
       .map(string => {
-        val stringSplit = string.split(',')
+        val stringSplit = string.split(',').toBuffer // string.split 返回 Array Array 是定长数组、ArrayBuffer 是不定长数组能够追加元素
         val passengerId = stringSplit(0) // 一个样本的 passengerId
         val survived = stringSplit(1) // 一个样本的 survived
         var features: String = new String("") // 一个样本的所有 features
+        if (stringSplit.length < 13) stringSplit += "null" // 如果 ArrayBuffer[String] 中元素个数少于 13 个说明末尾元素缺失 , 通过 += 追加
         for (i <- 2 until stringSplit.length) {
           if (stringSplit(i) == "") stringSplit(i) = "null" // 如果是缺失值变为 null 注 Titanic 文件中缺失值是 null
           features = features + stringSplit(i)
@@ -124,5 +128,7 @@ object Titanic_Try_Rdd {
       .toDF("features")
 
     trainFeaturesDataFrame.show()
+
+    spark.stop()
   }
 }
